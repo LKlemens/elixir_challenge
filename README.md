@@ -13,7 +13,7 @@ Założenia i informacje:
 
 - Przyjmowane są rozwiązania wyłącznie w jęzku Elixir.
 - Rozwiązanie należy wysłać jako Pull Request do repozytorium.
-- Rozwiązania przyjmujemy do końca 27.04.2024, jakiekolwiek commity wysłane po tym terminie nie będą brane pod uwagę.
+- Rozwiązania przyjmujemy do końca 19.04.2025, jakiekolwiek commity wysłane po tym terminie nie będą brane pod uwagę.
 - Można tworzyć dowolną liczbę modułów i wykorzysytwać dowolne biblioteki.
 - Można dopisać własne testy do implementacji (tylko w nowych modułach).
 - Zabronione jest tworzenie implementacji, która wyciąga rozwiązanie z datasetu.
@@ -23,7 +23,7 @@ Założenia i informacje:
 - Sprawdzany jest średni czas wykonania dla 10 testów.
 - Brany pod uwagę jest rezultat z ostatniego commita, który przechodzi testy.
 - Wszelkie niejasności i wątpliwości będą rozstrzygnięte przez organizatora konkursu.
-- Deadline 27.04 23:59
+- Deadline 19.04 23:59
 
 Porada:
 
