@@ -46,10 +46,10 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   def find_number_with_factors_sum(candidates, target_sum) do
     # Your solution
     pids = for num <- candidates do  spawn(__MODULE__, :factors_sum, [num, target_sum, self()]) end
-    # target_sum is sum of one of candidate, so receive always
+    # it is said in task that target_sum is the sum of one of the candidates, so receive always gets the correct_number
     receive do
       correct_number ->
-        for pid <- pids do pid |> Process.exit(:shutdown) end
+        for pid <- pids do pid |> Process.exit(:kill) end
         correct_number
     end
   end
