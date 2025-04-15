@@ -13,29 +13,33 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
 
   """
 
-    def factors_sum(num, target, pid), do: factor_sum(num, num, 2, target, pid)
+  def factors_sum(num, target, pid) do
+    factor_sum(num, num, 2, target, pid)
+  end
 
-    def factor_sum(num, 1, _div, target, pid) when target==0, do: send(pid, num)
-    def factor_sum(_num, 1, _div, _target, _pid), do: nil
+  def factor_sum(num, 1, _div, 0, pid), do: send(pid, num)
+  def factor_sum(_num, 1, _div, _target, _pid), do: :noop
+  def factor_sum(_num, _n, _div, target, _pid) when target < 0, do: :noop
 
-    def factor_sum(_num, _n, _div, target, _pid) when target<0, do: nil
+  def factor_sum(num, n, div, target, pid) do
+    cond do
+      div * div > n ->
+        if n == target do
+          send(pid, num)
+        else
+          :noop
+        end
 
-    def factor_sum(num, n, div, target, pid) when div * div > n and target-n==0, do: send(pid, num)
-    def factor_sum(_num, n, div, _target, _pid) when div * div > n, do: nil
+      rem(n, div) == 0 ->
+        factor_sum(num, div(n, div), div, target - div, pid)
 
-    def factor_sum(num, n, div, target, pid) do
-      cond do
-        rem(n, div) == 0 ->
-          factor_sum(num, div(n, div), div, target - div, pid)
+      div == 2 ->
+        factor_sum(num, n, 3, target, pid)
 
-        div == 2 ->
-          factor_sum(num, n, 3, target, pid)
-
-        true ->
-          factor_sum(num, n, div + 2, target, pid)
-
-      end
+      true ->
+        factor_sum(num, n, div + 2, target, pid)
     end
+  end
 
 
   @spec find_number_with_factors_sum([integer()], integer()) :: integer()
