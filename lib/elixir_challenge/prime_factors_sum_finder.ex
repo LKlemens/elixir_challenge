@@ -44,9 +44,20 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
 
   defp sum_prime_factors(n) when n <= 1, do: 0
   defp sum_prime_factors(n) do
+    case n do
+      2 -> 2
+      3 -> 3
+      4 -> 2 + 2
+      5 -> 5
+      6 -> 2 + 3
+      7 -> 7
+      8 -> 2 + 2 + 2
+      9 -> 3 + 3
+      _ ->
         {n, sum} = extract_twos(n, 0)
         {n, sum} = extract_threes(n, sum)
         factorize_remaining(n, 5, sum)
+    end
   end
 
   defp extract_twos(n, sum) when rem(n, 2) == 0 do
