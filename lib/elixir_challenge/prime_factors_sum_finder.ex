@@ -16,16 +16,37 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   def find_number_with_factors_sum(candidates, target_sum) do
     sorted_candidates = Enum.sort(candidates)
 
-    Enum.find(sorted_candidates, fn candidate ->
+    find_parallel(sorted_candidates, target_sum)
+  end
+
+  defp find_sequential(candidates, target_sum) do
+    Enum.find(candidates, fn candidate ->
       sum_prime_factors(candidate) == target_sum
     end)
   end
 
+  defp find_parallel(candidates, target_sum) do
+    chunk_size = max(1, div(length(candidates), System.schedulers_online()))
+
+    candidates
+    |> Enum.chunk_every(chunk_size)
+    |> Task.async_stream(
+         fn chunk ->
+           find_sequential(chunk, target_sum)
+         end,
+         ordered: false,
+         timeout: 3000
+       )
+    |> Stream.filter(fn {:ok, result} -> not is_nil(result) end)
+    |> Stream.map(fn {:ok, result} -> result end)
+    |> Enum.at(0)
+  end
+
   defp sum_prime_factors(n) when n <= 1, do: 0
   defp sum_prime_factors(n) do
-    {n, sum} = extract_twos(n, 0)
-    {n, sum} = extract_threes(n, sum)
-    factorize_remaining(n, 5, sum)
+        {n, sum} = extract_twos(n, 0)
+        {n, sum} = extract_threes(n, sum)
+        factorize_remaining(n, 5, sum)
   end
 
   defp extract_twos(n, sum) when rem(n, 2) == 0 do
