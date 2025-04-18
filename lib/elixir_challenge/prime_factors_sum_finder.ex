@@ -6,7 +6,7 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
         if target == 0 do
           {:good, 0, 0}
         else
-          {:bad, target, 0}
+          {:bad, 0, 0}
         end
 
       # hit prime
@@ -14,16 +14,16 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
         if number == target do
           {:good, 0, 0}
         else
-          {:bad, target, 0}
+          {:bad, 0, 0}
         end
 
       # target missed
       target <= 0 ->
-        {:bad, target, 0}
+        {:bad, 0, 0}
 
       # target implicitly missed
       target < divisor ->
-        {:bad, target, 0}
+        {:bad, 0, 0}
 
       # finished factoring
       rem(number, divisor) != 0 ->
@@ -40,7 +40,7 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
       {:good, _, _} ->
         true
 
-      {:bad, left, _} ->
+      {:bad, _, _} ->
         false
 
       {:continue, start_num, start_target} ->
@@ -53,11 +53,53 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
       {:good, _, _} ->
         true
 
-      {:bad, left, _} ->
+      {:bad, _, _} ->
         false
 
       {:continue, start_num, start_target} ->
         test(start_num, start_target, divisor + 2)
+    end
+  end
+
+  def start_find_number(master, candidates, target_sum) do
+    case candidates do
+      [candidate | rest] ->
+        spawn(fn -> parallel_helper(master, candidate, target_sum) end)
+        start_find_number(master, rest, target_sum)
+
+      [] ->
+        nil
+    end
+  end
+
+  def parallel_helper(master, candidate, target_sum) do
+    if check(candidate, target_sum) do
+      send(master, {:good, candidate})
+    else
+      send(master, {:bad, 0})
+    end
+  end
+
+  def continue_find_number(master, candidates, target_sum) do
+    case candidates do
+      [candidate | rest] ->
+        receive do
+          {:bad, _} ->
+            spawn(fn -> parallel_helper(master, candidate, target_sum) end)
+            continue_find_number(master, rest, target_sum)
+
+          {:good, found} ->
+            found
+        end
+
+      [] ->
+        receive do
+          {:bad, _} ->
+            continue_find_number(master, [], target_sum)
+
+          {:good, found} ->
+            found
+        end
     end
   end
 
@@ -76,12 +118,9 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   """
   @spec find_number_with_factors_sum([integer()], integer()) :: integer()
   def find_number_with_factors_sum(candidates, target_sum) do
-    candidate = hd(candidates)
-
-    if check(candidate, target_sum) do
-      candidate
-    else
-      find_number_with_factors_sum(tl(candidates), target_sum)
-    end
+    start_pool = candidates |> Enum.take(System.schedulers_online())
+    rest = candidates |> Enum.drop(System.schedulers_online())
+    start_find_number(self(), start_pool, target_sum)
+    continue_find_number(self(), rest, target_sum)
   end
 end
