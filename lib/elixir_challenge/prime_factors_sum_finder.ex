@@ -1,64 +1,24 @@
 defmodule ElixirChallenge.PrimeFactorsSumFinder do
-  def divs(number, target, divisor) do
-    cond do
-      # finished factoring
-      number == 1 ->
-        if target == 0 do
-          {:good, 0, 0}
-        else
-          {:bad, 0, 0}
-        end
+  @doc """
+  A function which finds and returns a number in the `candidates` list
+  for which the sum of its prime factors is equal `target_sum`.
 
-      # hit prime
-      divisor > floor(:math.sqrt(number)) ->
-        if number == target do
-          {:good, 0, 0}
-        else
-          {:bad, 0, 0}
-        end
+  ## Examples
 
-      # target missed
-      target <= 0 ->
-        {:bad, 0, 0}
+      iex> ElixirChallenge.PrimeFactorsSumFinder.find_number_with_factors_sum([8, 13, 12], 6)
+      8
 
-      # target implicitly missed
-      target < divisor ->
-        {:bad, 0, 0}
+      iex> ElixirChallenge.PrimeFactorsSumFinder.find_number_with_factors_sum([8, 13, 12], 7)
+      12
 
-      # finished factoring
-      rem(number, divisor) != 0 ->
-        {:continue, number, target}
-
-      # hit factor
-      true ->
-        divs(div(number, divisor), target - divisor, divisor)
-    end
-  end
-
-  def check(number, target) do
-    case divs(number, target, 2) do
-      {:good, _, _} ->
-        true
-
-      {:bad, _, _} ->
-        false
-
-      {:continue, start_num, start_target} ->
-        test(start_num, start_target, 3)
-    end
-  end
-
-  def test(number, target, divisor) do
-    case divs(number, target, divisor) do
-      {:good, _, _} ->
-        true
-
-      {:bad, _, _} ->
-        false
-
-      {:continue, start_num, start_target} ->
-        test(start_num, start_target, divisor + 2)
-    end
+  """
+  @spec find_number_with_factors_sum([integer()], integer()) :: integer()
+  def find_number_with_factors_sum(candidates, target_sum) do
+    threads_amount = System.schedulers_online()
+    start_pool = candidates |> Enum.take(threads_amount)
+    rest = candidates |> Enum.drop(threads_amount)
+    start_find_number(self(), start_pool, target_sum)
+    continue_find_number(self(), rest, target_sum)
   end
 
   def start_find_number(master, candidates, target_sum) do
@@ -103,24 +63,69 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     end
   end
 
-  @doc """
-  A function which finds and returns a number in the `candidates` list
-  for which the sum of its prime factors is equal `target_sum`.
+  def check(number, target) do
+    case divs(number, target, 2) do
+      {:good, _, _} ->
+        true
 
-  ## Examples
+      {:bad, _, _} ->
+        false
 
-      iex> ElixirChallenge.PrimeFactorsSumFinder.find_number_with_factors_sum([8, 13, 12], 6)
-      8
+      {:continue, start_num, start_target} ->
+        test(start_num, start_target, 3)
+    end
+  end
 
-      iex> ElixirChallenge.PrimeFactorsSumFinder.find_number_with_factors_sum([8, 13, 12], 7)
-      12
+  def test(number, target, divisor) do
+    case divs(number, target, divisor) do
+      {:good, _, _} ->
+        true
 
-  """
-  @spec find_number_with_factors_sum([integer()], integer()) :: integer()
-  def find_number_with_factors_sum(candidates, target_sum) do
-    start_pool = candidates |> Enum.take(System.schedulers_online())
-    rest = candidates |> Enum.drop(System.schedulers_online())
-    start_find_number(self(), start_pool, target_sum)
-    continue_find_number(self(), rest, target_sum)
+      {:bad, _, _} ->
+        false
+
+      {:continue, start_num, start_target} ->
+        test(start_num, start_target, divisor + 2)
+    end
+  end
+
+  def divs(number, target, divisor) do
+    cond do
+      # finished factoring
+      number == 1 ->
+        if target == 0 do
+          {:good, 0, 0}
+        else
+          {:bad, 0, 0}
+        end
+
+      # target missed (obviously)
+      target <= 0 ->
+        {:bad, 0, 0}
+
+      # target missed (no way to reach it)
+      target > number ->
+        {:bad, 0, 0}
+
+      # hit prime
+      divisor > floor(:math.sqrt(number)) ->
+        if number == target do
+          {:good, 0, 0}
+        else
+          {:bad, 0, 0}
+        end
+
+      # target missed (sum can only be larger than it)
+      target < divisor ->
+        {:bad, 0, 0}
+
+      # finished factoring
+      rem(number, divisor) != 0 ->
+        {:continue, number, target}
+
+      # hit factor
+      true ->
+        divs(div(number, divisor), target - divisor, divisor)
+    end
   end
 end
