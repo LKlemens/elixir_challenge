@@ -14,13 +14,13 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   """
   @spec find_number_with_factors_sum([integer()], integer()) :: integer()
   def find_number_with_factors_sum(candidates, target_sum) do
-    # threads_amount = System.schedulers_online()
+    candidates = Enum.sort(candidates)
+    threads_amount = System.schedulers_online()
     me = self()
 
     pid =
       spawn(fn ->
-        # find_number_worker(candidates, target_sum, threads_amount)
-        find_number_worker(me, candidates, target_sum)
+        find_number_worker(me, candidates, target_sum, threads_amount)
       end)
 
     receive do
@@ -34,18 +34,17 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
         master,
         candidates,
         target_sum,
-        threads_amount \\ System.schedulers_online()
+        threads_amount
       ) do
-    start_pool = candidates |> Enum.take(threads_amount)
-    rest = candidates |> Enum.drop(threads_amount)
     me = self()
 
-    start_pool
-    |> Enum.map(fn candidate ->
-      pid = spawn(fn -> parallel_helper(me, candidate, target_sum) end)
-      Process.link(pid)
+    candidates
+    |> Enum.take(threads_amount)
+    |> Enum.each(fn candidate ->
+      spawn_link(fn -> parallel_helper(me, candidate, target_sum) end)
     end)
 
+    rest = candidates |> Enum.drop(threads_amount)
     found = continue_find_number(rest, target_sum)
     send(master, {:found, found})
   end
@@ -54,7 +53,7 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     if check(candidate, target_sum) do
       send(master, {:good, candidate})
     else
-      send(master, {:bad, 0})
+      send(master, :bad)
     end
   end
 
@@ -62,11 +61,10 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     me = self()
 
     receive do
-      {:bad, _} ->
+      :bad ->
         case candidates do
           [candidate | rest] ->
-            pid = spawn(fn -> parallel_helper(me, candidate, target_sum) end)
-            Process.link(pid)
+            spawn_link(fn -> parallel_helper(me, candidate, target_sum) end)
             continue_find_number(rest, target_sum)
 
           [] ->
@@ -80,10 +78,10 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
 
   def check(number, target) do
     case divs(number, target, 2) do
-      {:good, _, _} ->
+      :good ->
         true
 
-      {:bad, _, _} ->
+      :bad ->
         false
 
       {:continue, start_num, start_target} ->
@@ -93,10 +91,10 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
 
   def test(number, target, divisor) do
     case divs(number, target, divisor) do
-      {:good, _, _} ->
+      :good ->
         true
 
-      {:bad, _, _} ->
+      :bad ->
         false
 
       {:continue, start_num, start_target} ->
@@ -106,53 +104,53 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
 
   def divs(number, target, divisor) do
     if rem(number, divisor) == 0 do
-      {new_number, new_target} = divs_helper(div(number, divisor), target - divisor, divisor)
+      {number, target} = divs_helper(div(number, divisor), target - divisor, divisor)
 
       cond do
         # finished factoring
-        new_number == 1 ->
-          if new_target == 0 do
-            {:good, 0, 0}
+        number == 1 ->
+          if target == 0 do
+            :good
           else
-            {:bad, 0, 0}
+            :bad
           end
 
         # target missed (obviously)
-        new_target <= 0 ->
-          {:bad, 0, 0}
+        target <= 0 ->
+          :bad
 
         # target missed (no way to reach it)
-        new_target > new_number ->
-          {:bad, 0, 0}
-
-        # hit prime
-        divisor > floor(:math.sqrt(new_number)) ->
-          if new_number == new_target do
-            {:good, 0, 0}
-          else
-            {:bad, 0, 0}
-          end
+        target > number ->
+          :bad
 
         # target missed (sum can only be larger than it)
-        new_target < divisor ->
-          {:bad, 0, 0}
+        target <= divisor ->
+          :bad
+
+        # hit prime
+        divisor * divisor > number ->
+          if number == target do
+            :good
+          else
+            :bad
+          end
 
         true ->
-          {:continue, new_number, new_target}
+          {:continue, number, target}
       end
     else
       cond do
         # hit prime
-        divisor > floor(:math.sqrt(number)) ->
+        divisor * divisor > number ->
           if number == target do
-            {:good, 0, 0}
+            :good
           else
-            {:bad, 0, 0}
+            :bad
           end
 
         # target missed (sum can only be larger than it)
-        target < divisor ->
-          {:bad, 0, 0}
+        target <= divisor ->
+          :bad
 
         true ->
           {:continue, number, target}
