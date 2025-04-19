@@ -105,42 +105,66 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   end
 
   def divs(number, target, divisor) do
-    cond do
-      # finished factoring
-      number == 1 ->
-        if target == 0 do
-          {:good, 0, 0}
-        else
+    if rem(number, divisor) == 0 do
+      {new_number, new_target} = divs_helper(div(number, divisor), target - divisor, divisor)
+
+      cond do
+        # finished factoring
+        new_number == 1 ->
+          if new_target == 0 do
+            {:good, 0, 0}
+          else
+            {:bad, 0, 0}
+          end
+
+        # target missed (obviously)
+        new_target <= 0 ->
           {:bad, 0, 0}
-        end
 
-      # target missed (obviously)
-      target <= 0 ->
-        {:bad, 0, 0}
-
-      # target missed (no way to reach it)
-      target > number ->
-        {:bad, 0, 0}
-
-      # hit prime
-      divisor > floor(:math.sqrt(number)) ->
-        if number == target do
-          {:good, 0, 0}
-        else
+        # target missed (no way to reach it)
+        new_target > new_number ->
           {:bad, 0, 0}
-        end
 
-      # target missed (sum can only be larger than it)
-      target < divisor ->
-        {:bad, 0, 0}
+        # hit prime
+        divisor > floor(:math.sqrt(new_number)) ->
+          if new_number == new_target do
+            {:good, 0, 0}
+          else
+            {:bad, 0, 0}
+          end
 
-      # finished factoring
-      rem(number, divisor) != 0 ->
-        {:continue, number, target}
+        # target missed (sum can only be larger than it)
+        new_target < divisor ->
+          {:bad, 0, 0}
 
-      # hit factor
-      true ->
-        divs(div(number, divisor), target - divisor, divisor)
+        true ->
+          {:continue, new_number, new_target}
+      end
+    else
+      cond do
+        # hit prime
+        divisor > floor(:math.sqrt(number)) ->
+          if number == target do
+            {:good, 0, 0}
+          else
+            {:bad, 0, 0}
+          end
+
+        # target missed (sum can only be larger than it)
+        target < divisor ->
+          {:bad, 0, 0}
+
+        true ->
+          {:continue, number, target}
+      end
+    end
+  end
+
+  def divs_helper(number, target, divisor) do
+    if rem(number, divisor) == 0 do
+      divs_helper(div(number, divisor), target - divisor, divisor)
+    else
+      {number, target}
     end
   end
 end
