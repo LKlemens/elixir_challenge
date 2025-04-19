@@ -16,17 +16,23 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   def find_number_with_factors_sum(candidates, target_sum) do
     candidates = Enum.sort(candidates)
     threads_amount = System.schedulers_online()
+
+    # looks like good amount for some unknown reason
+    threads_amount =
+      if threads_amount <= 4 do
+        threads_amount * 3
+      else
+        threads_amount * 2
+      end
+
     me = self()
 
-    pid =
-      spawn(fn ->
-        find_number_worker(me, candidates, target_sum, threads_amount)
-      end)
+    spawn(fn ->
+      find_number_worker(me, candidates, target_sum, threads_amount)
+    end)
 
     receive do
-      {:found, candidate} ->
-        Process.exit(pid, :kill)
-        candidate
+      candidate -> candidate
     end
   end
 
@@ -45,8 +51,7 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     end)
 
     rest = candidates |> Enum.drop(threads_amount)
-    found = continue_find_number(rest, target_sum)
-    send(master, {:found, found})
+    continue_find_number(master, rest, target_sum)
   end
 
   def parallel_helper(master, candidate, target_sum) do
@@ -57,7 +62,7 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     end
   end
 
-  def continue_find_number(candidates, target_sum) do
+  def continue_find_number(master, candidates, target_sum) do
     me = self()
 
     receive do
@@ -65,14 +70,15 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
         case candidates do
           [candidate | rest] ->
             spawn_link(fn -> parallel_helper(me, candidate, target_sum) end)
-            continue_find_number(rest, target_sum)
+            continue_find_number(master, rest, target_sum)
 
           [] ->
-            continue_find_number([], target_sum)
+            continue_find_number(master, [], target_sum)
         end
 
       {:good, found} ->
-        found
+        send(master, found)
+        exit(:shutdown)
     end
   end
 
@@ -124,8 +130,8 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
           :bad
 
         # target missed (sum can only be larger than it)
-        target <= divisor ->
-          :bad
+        # target <= divisor ->
+        #   :bad
 
         # hit prime
         divisor * divisor > number ->
