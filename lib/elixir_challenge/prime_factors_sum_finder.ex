@@ -14,22 +14,40 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
   """
   @spec find_number_with_factors_sum([integer()], integer()) :: integer()
   def find_number_with_factors_sum(candidates, target_sum) do
-    threads_amount = System.schedulers_online()
-    start_pool = candidates |> Enum.take(threads_amount)
-    rest = candidates |> Enum.drop(threads_amount)
-    start_find_number(self(), start_pool, target_sum)
-    continue_find_number(self(), rest, target_sum)
+    # threads_amount = System.schedulers_online()
+    me = self()
+
+    pid =
+      spawn(fn ->
+        # find_number_worker(candidates, target_sum, threads_amount)
+        find_number_worker(me, candidates, target_sum)
+      end)
+
+    receive do
+      {:found, candidate} ->
+        Process.exit(pid, :kill)
+        candidate
+    end
   end
 
-  def start_find_number(master, candidates, target_sum) do
-    case candidates do
-      [candidate | rest] ->
-        spawn(fn -> parallel_helper(master, candidate, target_sum) end)
-        start_find_number(master, rest, target_sum)
+  def find_number_worker(
+        master,
+        candidates,
+        target_sum,
+        threads_amount \\ System.schedulers_online()
+      ) do
+    start_pool = candidates |> Enum.take(threads_amount)
+    rest = candidates |> Enum.drop(threads_amount)
+    me = self()
 
-      [] ->
-        nil
-    end
+    start_pool
+    |> Enum.map(fn candidate ->
+      pid = spawn(fn -> parallel_helper(me, candidate, target_sum) end)
+      Process.link(pid)
+    end)
+
+    found = continue_find_number(rest, target_sum)
+    send(master, {:found, found})
   end
 
   def parallel_helper(master, candidate, target_sum) do
@@ -40,26 +58,23 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     end
   end
 
-  def continue_find_number(master, candidates, target_sum) do
-    case candidates do
-      [candidate | rest] ->
-        receive do
-          {:bad, _} ->
-            spawn(fn -> parallel_helper(master, candidate, target_sum) end)
-            continue_find_number(master, rest, target_sum)
+  def continue_find_number(candidates, target_sum) do
+    me = self()
 
-          {:good, found} ->
-            found
+    receive do
+      {:bad, _} ->
+        case candidates do
+          [candidate | rest] ->
+            pid = spawn(fn -> parallel_helper(me, candidate, target_sum) end)
+            Process.link(pid)
+            continue_find_number(rest, target_sum)
+
+          [] ->
+            continue_find_number([], target_sum)
         end
 
-      [] ->
-        receive do
-          {:bad, _} ->
-            continue_find_number(master, [], target_sum)
-
-          {:good, found} ->
-            found
-        end
+      {:good, found} ->
+        found
     end
   end
 
