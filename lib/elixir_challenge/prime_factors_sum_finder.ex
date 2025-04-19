@@ -47,16 +47,17 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
     candidates
     |> Enum.take(threads_amount)
     |> Enum.each(fn candidate ->
-      spawn_link(fn -> parallel_helper(me, candidate, target_sum) end)
+      spawn_link(fn -> parallel_helper(me, master, candidate, target_sum) end)
     end)
 
     rest = candidates |> Enum.drop(threads_amount)
     continue_find_number(master, rest, target_sum)
   end
 
-  def parallel_helper(master, candidate, target_sum) do
+  def parallel_helper(master, main, candidate, target_sum) do
     if check(candidate, target_sum) do
-      send(master, {:good, candidate})
+      send(master, :good)
+      send(main, candidate)
     else
       send(master, :bad)
     end
@@ -69,15 +70,14 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
       :bad ->
         case candidates do
           [candidate | rest] ->
-            spawn_link(fn -> parallel_helper(me, candidate, target_sum) end)
+            spawn_link(fn -> parallel_helper(me, master, candidate, target_sum) end)
             continue_find_number(master, rest, target_sum)
 
           [] ->
             continue_find_number(master, [], target_sum)
         end
 
-      {:good, found} ->
-        send(master, found)
+      :good ->
         exit(:shutdown)
     end
   end
@@ -128,10 +128,6 @@ defmodule ElixirChallenge.PrimeFactorsSumFinder do
         # target missed (no way to reach it)
         target > number ->
           :bad
-
-        # target missed (sum can only be larger than it)
-        # target <= divisor ->
-        #   :bad
 
         # hit prime
         divisor * divisor > number ->
